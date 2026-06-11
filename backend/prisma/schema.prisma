@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  name         String
+  consent      Boolean   @default(false) // Согласие на обработку ПД
+  consentDate  DateTime? // Дата получения согласия
+  lastLogin    DateTime? // Последний вход
+  ipAddress    String? // IP-адрес для логирования
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Asset {
+  id              String   @id @default(cuid())
+  name            String
+  inventoryNumber String   @unique
+  mol             String
+  cost            Float
+  accountingDate  DateTime? // Дата постановки на учёт
+  status          String   @default("active")
+  qrCode          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  scans           Scan[]
+
+  @@map("assets")
+}
+
+model Inventory {
+  id            String    @id @default(cuid())
+  name          String
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  status        String    @default("draft")
+  totalAssets   Int       @default(0)
+  foundAssets   Int       @default(0)
+  missingAssets Int       @default(0)
+  percentage    Float     @default(0)
+  scans         Scan[]
+
+  @@map("inventories")
+}
+
+model Scan {
+  id          String    @id @default(cuid())
+  assetId     String
+  inventoryId String
+  status      String
+  timestamp   DateTime  @default(now())
+  notes       String?
+  asset       Asset     @relation(fields: [assetId], references: [id])
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@map("scans")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String // register, login, logout, create, update, delete, export, etc.
+  entity    String? // user, asset, inventory, report
+  entityId  String?
+  ipAddress String?
+  userAgent String?
+  details   String? // JSON с дополнительными данными
+  timestamp DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model DataRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  email       String
+  requestType String // access, correction, deletion, consent_withdrawal
+  status      String   @default("pending") // pending, in_progress, completed, rejected
+  reason      String?
+  response    String?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@map("data_requests")
+}
+
