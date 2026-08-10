@@ -1,58 +1,25 @@
-import { useTheme } from '../contexts/ThemeContext';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export const Header = () => {
-  const { theme, toggleTheme } = useTheme();
-  const location = useLocation();
-  const isHome = location.pathname === '/';
-
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-soft">
-      <nav className="container-custom py-4">
+    <header className="sticky top-0 z-50 bg-[#f7f9f6]/95 backdrop-blur border-b border-[#dce5de]">
+      <nav className="container-custom h-[76px] flex items-center justify-between" aria-label="Основная навигация">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary-700 dark:bg-primary-600 rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-sm">3</span>
+          <Link to="/" className="flex items-center gap-2.5 text-[22px] font-extrabold tracking-tight text-[#17221d]">
+            <div className="grid h-[30px] w-[30px] place-items-center rounded-[9px] bg-[#14623d] text-[17px] text-white">
+              3
             </div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-gray-100">3авхоз.рф</span>
+            <span>авхоз</span>
           </Link>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-6">
-              <Link to="/about" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
-                О сервисе
-              </Link>
-              {isHome && (
-                <>
-                  <a href="#demo" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
-                    Демо
-                  </a>
-                  <a href="#features" className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
-                    Возможности
-                  </a>
-                </>
-              )}
-              <button className="btn btn-primary text-sm">
-                Начать
-              </button>
-            </div>
-            
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-md flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              aria-label="Переключить тему"
-            >
-              {theme === 'light' ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              )}
-            </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden items-center gap-6 md:flex">
+            <a href="/#process" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">Как работает</a>
+            <a href="/#features" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">Возможности</a>
+            <Link to="/about" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">О сервисе</Link>
           </div>
+          <a href="/#request" className="inline-flex min-h-[42px] items-center justify-center rounded-[9px] border border-[#14623d] px-4 text-sm font-bold text-[#14623d] transition hover:bg-[#dff3e7]">Запросить доступ</a>
         </div>
       </nav>
     </header>

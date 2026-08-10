@@ -5,11 +5,20 @@ import * as Tabs from '@radix-ui/react-tabs';
 import * as Progress from '@radix-ui/react-progress';
 import QRCode from 'qrcode';
 
+const demoAssets: Asset[] = [
+  { id: '1', name: 'Компьютер Dell Optiplex', inventoryNumber: 'ОС-0001', mol: 'Иванов И.И.', room: 'Кабинет 204', cost: 45000, accountingDate: '2023-01-15', status: 'active' },
+  { id: '2', name: 'Принтер HP LaserJet', inventoryNumber: 'ОС-0002', mol: 'Петров П.П.', room: 'Кабинет 204', cost: 25000, accountingDate: '2023-02-20', status: 'active' },
+  { id: '3', name: 'Стол офисный', inventoryNumber: 'ОС-0003', mol: 'Сидоров С.С.', room: 'Кабинет 204', cost: 15000, accountingDate: '2023-03-10', status: 'active' },
+  { id: '4', name: 'Кресло офисное', inventoryNumber: 'ОС-0004', mol: 'Сидоров С.С.', room: 'Кабинет 204', cost: 8000, accountingDate: '2023-03-10', status: 'active' },
+  { id: '5', name: 'Монитор LG 24"', inventoryNumber: 'ОС-0005', mol: 'Иванов И.И.', room: 'Кабинет 204', cost: 12000, accountingDate: '2023-04-05', status: 'active' },
+];
+
 interface Asset {
   id: string;
   name: string;
   inventoryNumber: string;
   mol: string;
+  room: string;
   cost: number;
   accountingDate?: string;
   status: string;
@@ -29,23 +38,12 @@ export const Demo = () => {
   const [activeTab, setActiveTab] = useState('upload');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [inventory, setInventory] = useState<Inventory | null>(null);
-  const [scanInput, setScanInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
-  // STEP 1: Upload and import demo data
   const handleMockUpload = async () => {
-    const mockData: Asset[] = [
-      { id: '1', name: 'Компьютер Dell Optiplex', inventoryNumber: 'ОС-0001', mol: 'Иванов И.И.', cost: 45000, accountingDate: '2023-01-15', status: 'active' },
-      { id: '2', name: 'Принтер HP LaserJet', inventoryNumber: 'ОС-0002', mol: 'Петров П.П.', cost: 25000, accountingDate: '2023-02-20', status: 'active' },
-      { id: '3', name: 'Стол офисный', inventoryNumber: 'ОС-0003', mol: 'Сидоров С.С.', cost: 15000, accountingDate: '2023-03-10', status: 'active' },
-      { id: '4', name: 'Кресло офисное', inventoryNumber: 'ОС-0004', mol: 'Сидоров С.С.', cost: 8000, accountingDate: '2023-03-10', status: 'active' },
-      { id: '5', name: 'Монитор LG 24"', inventoryNumber: 'ОС-0005', mol: 'Иванов И.И.', cost: 12000, accountingDate: '2023-04-05', status: 'active' },
-    ];
-
-    // Generate QR codes
     const assetsWithQR = await Promise.all(
-      mockData.map(async (asset) => ({
+      demoAssets.map(async (asset) => ({
         ...asset,
         qrCode: await QRCode.toDataURL(asset.inventoryNumber),
       }))
@@ -55,13 +53,11 @@ export const Demo = () => {
     setActiveTab('qr');
   };
 
-  // STEP 2: Show QR code dialog
   const showQR = (asset: Asset) => {
     setSelectedAsset(asset);
     setDialogOpen(true);
   };
 
-  // STEP 3: Start inventory
   const handleStartInventory = () => {
     setInventory({
       id: '1',
@@ -74,10 +70,9 @@ export const Demo = () => {
     setActiveTab('scan');
   };
 
-  // STEP 3: Scan asset
-  const handleScan = () => {
-    const asset = assets.find(a => a.inventoryNumber === scanInput.trim().toUpperCase());
-    
+  const handleScan = (assetId: string) => {
+    const asset = assets.find((item) => item.id === assetId);
+
     if (asset && asset.status !== 'found') {
       const updatedAssets = assets.map(a =>
         a.id === asset.id ? { ...a, status: 'found' } : a
@@ -98,8 +93,36 @@ export const Demo = () => {
         setActiveTab('report');
       }
     }
+  };
 
-    setScanInput('');
+  const downloadReport = () => {
+    if (!inventory) return;
+
+    const report = [
+      'Инвентаризационная ведомость',
+      inventory.name,
+      '',
+      'Инвентарный номер;Наименование;Результат',
+      ...assets.map((asset) => `${asset.inventoryNumber};${asset.name};${asset.status === 'found' ? 'Найдено' : 'Отсутствует'}`),
+      '',
+      `Всего;${inventory.totalAssets}`,
+      `Найдено;${inventory.foundAssets}`,
+      `Отсутствует;${inventory.missingAssets}`,
+    ].join('\r\n');
+    const bytes = Uint8Array.from([...report].map((character) => {
+      const code = character.charCodeAt(0);
+      if (code <= 0x7f) return code;
+      if (code === 0x0401) return 0xa8;
+      if (code === 0x0451) return 0xb8;
+      if (code >= 0x0410 && code <= 0x044f) return code - 0x350;
+      return 0x3f;
+    }));
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'text/csv;charset=windows-1251' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'инвентаризационная-ведомость.csv';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -108,7 +131,7 @@ export const Demo = () => {
         <div className="text-center mb-12">
           <h2 className="mb-4">Интерактивное демо</h2>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Попробуйте сами: загрузите данные, сгенерируйте QR, отсканируйте активы
+            Сценарий комнатной инвентаризации: тестовый реестр, QR-метки, проверка кабинета и ведомость. Данные не отправляются на сервер.
           </p>
         </div>
 
@@ -147,13 +170,13 @@ export const Demo = () => {
 
             <Tabs.Content value="upload" className="p-8">
               <div className="text-center">
-                <div className="text-6xl mb-6">📤</div>
-                <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Загрузите реестр основных средств</h3>
+                <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 flex items-center justify-center text-3xl font-bold">↑</div>
+                <h3 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Загрузите тестовый реестр ОС</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-8">
-                  Загрузите Excel или CSV файл с данными об основных средствах
+                  В демо используется подготовленный CSV-файл с пятью объектами имущества.
                 </p>
                 <Button size="lg" onClick={handleMockUpload}>
-                  Загрузить демо-данные
+                  Загрузить тестовый реестр
                 </Button>
               </div>
             </Tabs.Content>
@@ -166,7 +189,7 @@ export const Demo = () => {
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900 dark:text-gray-100">{asset.name}</div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {asset.inventoryNumber} • {asset.accountingDate ? new Date(asset.accountingDate).toLocaleDateString('ru-RU') : 'Дата не указана'} • {asset.cost.toLocaleString()} ₽
+                        {asset.inventoryNumber} • {asset.room} • {asset.cost.toLocaleString()} ₽
                       </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => showQR(asset)}>
@@ -181,7 +204,8 @@ export const Demo = () => {
             </Tabs.Content>
 
             <Tabs.Content value="scan" className="p-8">
-              <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Сканирование QR-кодов</h3>
+              <h3 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">Инвентаризация: кабинет 204</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Нажмите «Найдено» у объекта. Это имитирует успешное сканирование QR-метки в кабинете 204.</p>
               
               {inventory && (
                 <div className="mb-8">
@@ -201,25 +225,6 @@ export const Demo = () => {
                 </div>
               )}
 
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6 mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Отсканируйте QR-код или введите инвентарный номер
-                </label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleScan()}
-                    placeholder="Например: ОС-0001"
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                  <Button onClick={handleScan} disabled={!scanInput}>
-                    Сканировать
-                  </Button>
-                </div>
-              </div>
-
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {assets.map((asset) => (
                   <div
@@ -237,8 +242,10 @@ export const Demo = () => {
                         <div className="text-sm text-gray-600 dark:text-gray-400">{asset.inventoryNumber}</div>
                       </div>
                     </div>
-                    {asset.status === 'found' && (
+                    {asset.status === 'found' ? (
                       <span className="text-sm font-medium text-green-700 dark:text-green-400">Найдено</span>
+                    ) : (
+                      <Button size="sm" onClick={() => handleScan(asset.id)}>Найдено</Button>
                     )}
                   </div>
                 ))}
@@ -247,7 +254,7 @@ export const Demo = () => {
 
             <Tabs.Content value="report" className="p-8">
               <div className="text-center mb-8">
-                <div className="text-6xl mb-4">🎉</div>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 flex items-center justify-center text-3xl font-bold">✓</div>
                 <h3 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">Инвентаризация завершена!</h3>
                 <p className="text-gray-600 dark:text-gray-400">Отчёт готов к выгрузке</p>
               </div>
@@ -276,7 +283,7 @@ export const Demo = () => {
                 </div>
               )}
 
-              <Button size="lg" className="w-full">
+              <Button size="lg" className="w-full" onClick={downloadReport}>
                 Скачать отчёт
               </Button>
             </Tabs.Content>

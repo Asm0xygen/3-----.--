@@ -1,25 +1,26 @@
 export const BeforeAfter = () => {
   const before = [
-    'Бумажные инвентаризационные ведомости',
-    'Ручной поиск каждого актива в помещениях',
-    'Ручное заполнение данных в Excel',
-    'Ошибки при переписывании инвентарных номеров',
-    'Недели на подготовку отчётов',
+    'Выгрузка из бухгалтерии живёт отдельно от фактического имущества',
+    'Непонятно, в каком помещении находится объект',
+    'Перемещения и диагностика фиксируются вручную',
+    'Инвентаризация начинается с поиска бумажных ведомостей',
+    'Документы и итоги нужно собирать в нескольких файлах',
   ];
 
   const after = [
-    'Цифровые формы в онлайн доступе',
-    'Мгновенное сканирование QR-кодов',
-    'Автоматическая синхронизация данных',
-    'Точность благодаря QR-сканированию',
-    'Отчёты готовы за минуты',
+    'Выгрузка становится единым реестром имущества',
+    'Каждое ОС закреплено за помещением и имеет метку',
+    'История перемещений и состояние объекта всегда доступны',
+    'Проверка идёт по QR или Code128 с мобильного устройства',
+    'Ведомости и акты формируются по результатам работы',
   ];
 
   return (
     <section className="section bg-gray-50 dark:bg-gray-800 border-y border-gray-200 dark:border-gray-700">
       <div className="container-custom">
         <div className="text-center mb-12">
-          <h2 className="mb-4">Сравнение подходов</h2>
+          <h2 className="mb-4">Бухгалтерия хранит учёт. 3авхоз контролирует факт.</h2>
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Сервис использует бухгалтерскую выгрузку как основу, но не меняет стоимость, амортизацию или постановку на баланс.</p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
@@ -31,7 +32,7 @@ export const BeforeAfter = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Традиционный подход</h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Только бухгалтерская выгрузка</h3>
             </div>
             
             <ul className="space-y-4">
@@ -54,7 +55,7 @@ export const BeforeAfter = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">С 3авхоз.рф</h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Выгрузка + 3авхоз</h3>
             </div>
             
             <ul className="space-y-4">

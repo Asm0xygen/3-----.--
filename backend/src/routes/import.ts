@@ -1,11 +1,81 @@
 import { Router } from 'express';
 import multer from 'multer';
-import xlsx from 'xlsx';
 import QRCode from 'qrcode';
 import { db } from '../db';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const MAX_IMPORT_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const acceptedMimeTypes = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+  'application/csv',
+]);
+const acceptedExtensions = /\.(xlsx|csv)$/i;
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_IMPORT_FILE_SIZE_BYTES, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const isAccepted = acceptedMimeTypes.has(file.mimetype) || acceptedExtensions.test(file.originalname);
+    if (!isAccepted) {
+      callback(new Error('Поддерживаются только файлы XLSX и CSV'));
+      return;
+    }
+    callback(null, true);
+  },
+});
+
+const parseCsvLine = (line: string, delimiter: string) => {
+  const values: string[] = [];
+  let value = '';
+  let quoted = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === delimiter && !quoted) {
+      values.push(value.trim());
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+
+  values.push(value.trim());
+  return values;
+};
+
+const readImportRows = async (file: Express.Multer.File): Promise<Record<string, unknown>[]> => {
+  if (/\.xlsx$/i.test(file.originalname)) {
+    const { default: readXlsxFile } = await import('read-excel-file/node');
+    const rows = await readXlsxFile(file.buffer) as unknown as unknown[][];
+    const [headerRow, ...dataRows] = rows;
+    const headers = headerRow?.map((value) => String(value ?? '').trim()) ?? [];
+    if (!headers.some(Boolean)) throw new Error('Не найдены заголовки колонок');
+
+    return dataRows
+      .filter((row) => row.some((value) => value !== null && value !== undefined && value !== ''))
+      .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ''])));
+  }
+
+  const lines = file.buffer.toString('utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) throw new Error('Файл не содержит строк данных');
+
+  const delimiter = lines[0].includes(';') ? ';' : ',';
+  const headers = parseCsvLine(lines[0], delimiter);
+  if (!headers.some(Boolean)) throw new Error('Не найдены заголовки колонок');
+
+  return lines.slice(1).map((line): Record<string, unknown> => {
+    const values = parseCsvLine(line, delimiter);
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? '']));
+  });
+};
 
 router.post('/os', upload.single('file'), async (req, res) => {
   try {
@@ -13,26 +83,23 @@ router.post('/os', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json(sheet) as any[];
+    const data = await readImportRows(req.file);
 
     const imported: any[] = [];
     const errors: string[] = [];
 
     for (const row of data) {
       try {
-        const inventoryNumber = row['Инвентарный номер'] || row['inventoryNumber'] || String(row.id || '');
-        const name = row['Наименование'] || row['name'] || '';
-        const mol = row['МОЛ'] || row['mol'] || '';
-        const cost = parseFloat(row['Стоимость'] || row['cost'] || '0');
+        const inventoryNumber = String(row['Инвентарный номер'] || row['inventoryNumber'] || row.id || '');
+        const name = String(row['Наименование'] || row.name || '');
+        const mol = String(row['МОЛ'] || row.mol || '');
+        const cost = parseFloat(String(row['Стоимость'] || row.cost || '0'));
         const accountingDateRaw = row['Дата постановки'] || row['accountingDate'] || null;
         
         // Парсинг даты
         let accountingDate: Date | null = null;
         if (accountingDateRaw) {
-          const parsed = new Date(accountingDateRaw);
+          const parsed = new Date(String(accountingDateRaw));
           accountingDate = isNaN(parsed.getTime()) ? null : parsed;
         }
 
