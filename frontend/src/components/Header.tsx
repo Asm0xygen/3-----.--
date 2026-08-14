@@ -2,25 +2,28 @@ import { Link } from 'react-router-dom';
 
 export const Header = () => {
   return (
-    <header className="sticky top-0 z-50 bg-[#f7f9f6]/95 backdrop-blur border-b border-[#dce5de]">
-      <nav className="container-custom h-[76px] flex items-center justify-between" aria-label="Основная навигация">
-        <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 text-[22px] font-extrabold tracking-tight text-[#17221d]">
-            <div className="grid h-[30px] w-[30px] place-items-center rounded-[9px] bg-[#14623d] text-[17px] text-white">
-              3
-            </div>
-            <span>авхоз</span>
-          </Link>
+    <header className="landing-header">
+      <nav className="landing-wrap landing-nav" aria-label="Основная навигация">
+        <Link to="/" className="landing-logo" aria-label="Завхоз.рф — в начало страницы">
+          <span className="landing-logo-mark" aria-hidden="true">
+            З
+          </span>
+          <span>Завхоз.рф</span>
+        </Link>
+
+        <div className="landing-nav-links">
+          <a href="/#workflow">Как работает</a>
+          <a href="/#features">Возможности</a>
+          <a href="/#scope">Границы сервиса</a>
+          <Link to="/about">О сервисе</Link>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="hidden items-center gap-6 md:flex">
-            <a href="/#process" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">Как работает</a>
-            <a href="/#features" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">Возможности</a>
-            <Link to="/about" className="text-sm font-semibold text-[#43534a] transition-colors hover:text-[#14623d]">О сервисе</Link>
-          </div>
-          <a href="/#request" className="inline-flex min-h-[42px] items-center justify-center rounded-[9px] border border-[#14623d] px-4 text-sm font-bold text-[#14623d] transition hover:bg-[#dff3e7]">Запросить доступ</a>
-        </div>
+        <a
+          className="landing-button landing-button-primary landing-header-action"
+          href="mailto:hello@3авхоз.рф?subject=Пилот%20сервиса%20Завхоз.рф"
+        >
+          Обсудить пилот
+        </a>
       </nav>
     </header>
   );
