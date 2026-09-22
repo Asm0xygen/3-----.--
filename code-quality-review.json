@@ -1,0 +1,446 @@
+{
+  "score": 5.2,
+  "summary": "Прототип с серьёзными пробелами в архитектуре, безопасности и типизации. Код читаем, но содержит критические N+1-запросы, отсутствие валидации, незащищённые маршруты и дублирование логики. Типы часто коллапсируются в `any`. Рекомендуется рефакторинг перед production.",
+  "strengths": [
+    "Четкая файловая структура (routes/, db/, pages/) с разделением ответственности",
+    "Полная поддержка TypeScript с интерфейсами для форм и типов иконок",
+    "Хорошая аксессибильность в компонентах (role, aria-* атрибуты)",
+    "Использование bcrypt для хеша паролей и JWT для аутентификации",
+    "Аудит-логирование для всех критических действий (регистрация, вход, GDPR)",
+    "Приёмный контроль файлов в импорте (MIME-type, расширение, размер)",
+    "Настройка CORS для production-домена",
+    "Инкапсуляция mock/Prisma-адаптера через единый `db` интерфейс"
+  ],
+  "issues": [
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/routes/auth.ts:52, 104",
+      "problem": "Использование `process.env.JWT_SECRET!` без проверки наличия переменной. При отсутствии .env приложение упадет в runtime.",
+      "fix": "Проверить JWT_SECRET на инициализацию в index.ts, выбросить ошибку с инструкцией перед запуском сервера.",
+      "cwe": "CWE-15: External Control of System or Configuration Setting"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/routes/gdpr.ts:7-15, 226",
+      "problem": "Middleware `requireAuth` проверяет только наличие заголовка Bearer, не верифицирует JWT и не устанавливает req.userId. Все GDPR-маршруты уязвимы к любому Bearer-токену.",
+      "fix": "Создать полноценный JWT middleware: парсить токен, проверять подпись с секретом, выбросить 401 при ошибке, установить req.userId = decoded.userId.",
+      "cwe": "CWE-287: Improper Authentication"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/routes/inventory.ts:35-36",
+      "problem": "N+1-запрос: для поиска актива загружаются ВСЕ активы в памяи, затем ищется один. При 10k+ активах это сильно замедлит API.",
+      "fix": "Использовать db.asset.findUnique({ where: { inventoryNumber } }) или db.asset.findFirst({ where: { inventoryNumber } }) вместо findMany.",
+      "cwe": "CWE-1025: Comparison Using Wrong Factors"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/routes/reports.ts:6-39",
+      "problem": "Множественный N+1: для каждой инвентаризации загружаются все сканы, потом для каждого скана загружаются ВСЕ активы повторно. O(n²) или O(n*m).",
+      "fix": "Загрузить все активы один раз перед циклом, затем сопоставить. Или использовать JOIN в Prisma через include: { scans: { include: { asset: true } } }.",
+      "cwe": "CWE-1025: Comparison Using Wrong Factors"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/routes/import.ts:111-127",
+      "problem": "Отсутствует валидация входных данных. Поля из файла преобразуются через String() без проверки формата, длины, диапазонов. Нет проверки, что cost > 0, дата валидна по формату.",
+      "fix": "Добавить функцию validateAssetRow(row) с проверкой типов, длины, формата. Использовать zod или Joi для схемы валидации.",
+      "cwe": "CWE-20: Improper Input Validation"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "location": "backend/src/index.ts:28-33",
+      "problem": "Логирование всех запросов в консоль содержит IP-адреса и пути. Нет ограничения на логирование чувствительных данных (auth-маршруты, чужие IP). Нет ротации логов.",
+      "fix": "Использовать morgan или winston с фильтром на чувствительные маршруты. Исключить авторизацию, GDPR, импорт из логов или распечатывать только хеш IP.",
+      "cwe": "CWE-532: Insertion of Sensitive Information into Log File"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "backend/src/db/index.ts:4",
+      "problem": "Проверка USE_MOCK полагается на строку подключения. Если DATABASE_URL не установлена или содержит опечатку, система молча переходит на mock вместо ошибки. В production это может привести к потере данных.",
+      "fix": "В production явно выбросить ошибку, если DATABASE_URL не установлена или не работает. В dev использовать mock только при явной переменной USE_MOCK=true.",
+      "cwe": "CWE-391: Unchecked Error Condition"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "backend/src/routes/gdpr.ts:246",
+      "problem": "Hard delete пользователя без мягкого удаления. При использовании аудит-логов ссылка на userId станет orphan. Нарушает целостность GDPR-записей.",
+      "fix": "Реализовать soft delete: добавить deleted_at колонку, обновлять вместо удаления, исключать удаленных из запросов через WHERE deleted_at IS NULL.",
+      "cwe": "CWE-1104: Use of Unmaintained Third Party Components"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "frontend/src/pages/Auth.tsx:1-244",
+      "problem": "Компонент Auth содержит 244 строки в одном файле с вложенной логикой валидации. Сложность O(N), сложно тестировать. Валидация ИНН и email повторяется в коде.",
+      "fix": "Извлечь утилиты: isValidEmail(), isValidInn(), validateLoginForm(), validateRegistrationForm() в отдельный файл utils/validators.ts.",
+      "cwe": "CWE-1083: Data State not Updated after Security Relevant Change"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "backend/src/routes/assets.ts:6-29",
+      "problem": "Маршруты GET /api/assets и GET /api/assets/:id не имеют аутентификации и авторизации. Любой может получить весь реестр имущества.",
+      "fix": "Добавить middleware authRequired перед обработчиком. Загружать активы только текущей организации (при наличии tenant-контекста).",
+      "cwe": "CWE-639: Authorization Bypass Through User-Controlled Key"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "backend/src/routes/inventory.ts:70-89",
+      "problem": "После каждого скана пересчитывается процент с Math.round((foundAssets / inventory.totalAssets) * 100 * 100) / 100. Это численная нестабильность; при плавающей точке может быть ошибка округления.",
+      "fix": "Хранить процент как Integer (0-100) или использовать Decimal для денежных величин. Метод Math.round работает, но умножение на 100 дважды необычно.",
+      "cwe": "CWE-1025: Comparison Using Wrong Factors"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "backend/src/routes/auth.ts:62-64, 114-116",
+      "problem": "Обработчик ошибок не логирует детали: `catch (error) { res.status(500).json({ error: 'Registration failed' }) }`. Невозможно отследить реальную проблему. Для production нужно логирование.",
+      "fix": "Логировать ошибку: console.error('Register error:', error). Возвращать разные коды: 400 для валидации, 409 для дублирования, 500 для БД.",
+      "cwe": "CWE-209: Information Exposure Through an Error Message"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "location": "frontend/src/pages/UserDashboardDemo.tsx:29-79, AdminDashboardDemo.tsx:23-71",
+      "problem": "Компоненты Icon содержат большой switch с SVG-кодом (>50 кейсов). Это дублирование, сложность растёт линейно. При добавлении нового icon нужно менять компонент.",
+      "fix": "Извлечь иконки в отдельный объект: const iconMap = { archive: <svg>..., bell: <svg>... }, вернуть iconMap[name].",
+      "cwe": "CWE-1104: Use of Unmaintained Third Party Components"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "backend/src/routes/import.ts:28-52",
+      "problem": "CSV-парсер parseCsvLine() не обрабатывает граничные случаи: пустые строки в кавычках, экранирование внутри кавычек, Юникод BOM. Работает для простых случаев, но хрупкий.",
+      "fix": "Использовать готовую библиотеку: csv-parse, papaparse вместо hand-rolled парсера.",
+      "cwe": "CWE-1025: Comparison Using Wrong Factors"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "backend/src/db/index.ts:18-78",
+      "problem": "Mock-адаптер типирован как `any`. Функции db.asset.findMany() возвращают `any`, теряется type safety. В runtime ошибки будут, но TypeScript не поймёт.",
+      "fix": "Добавить типы для mock-адаптера: type MockDb = { user: { findUnique: (opts: any) => Promise<User | null>, ... }, ... }",
+      "cwe": "CWE-1104: Use of Unmaintained Third Party Components"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "frontend/src/pages/Auth.tsx:80-102",
+      "problem": "Форма регистрации проверяет только наличие согласия, но не проверяет, что пользователь физически прочитал политику. Согласие может быть механическим.",
+      "fix": "Добавить флаг на фронте: требовать, чтобы пользователь прокрутил условия до конца перед включением checkbox. На бэке хранить версию политики и время согласия (уже есть в схеме).",
+      "cwe": "CWE-345: Insufficient Verification of Data Authenticity"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "backend/src/routes/inventory.ts:6-29",
+      "problem": "Инициализация инвентаризации использует totalAssets из длины массива активов, но не проверяет, что активы существуют. Если никаких активов нет, инвентаризация создается с totalAssets=0, что может быть ошибкой.",
+      "fix": "Выбросить валидационную ошибку, если активов нет: if (totalAssets === 0) return res.status(400).json({ error: 'No assets to inventory' })",
+      "cwe": "CWE-20: Improper Input Validation"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "backend/src/routes/auth.ts:25, 81",
+      "problem": "Попытка извлечения IP: req.ip || req.socket.remoteAddress || 'unknown'. req.socket может быть undefined в некоторых окружениях (proxy, loadbalancer). Лучше использовать middleware для парсинга X-Forwarded-For.",
+      "fix": "Использовать express-trust-proxy и middleware: app.set('trust proxy', 1). Затем req.ip будет содержать реальный IP.",
+      "cwe": "CWE-348: Formation of Incorrectly-Ordered SQL Command ('SQL Injection')"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "frontend/src/pages/Auth.tsx:38-39",
+      "problem": "Email-валидация использует regex /^\\S+@\\S+\\.\\S+$/. Это позволит 'a@b.c', что не является валидным email. Нет проверки на точку в домене, нет проверки длины.",
+      "fix": "Использовать более строгий regex или библиотеку: /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/ или email-validator.",
+      "cwe": "CWE-20: Improper Input Validation"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "location": "backend/src/index.ts:24",
+      "problem": "CORS в production указана только одна OrigiN: 3авхоз.рф. Если фронт хостится на subdomain (app.3авхоз.рф), запрос упадет. Нет проверки на www, поддомены.",
+      "fix": "Использовать функцию для динамической проверки: origin: (o, cb) => cb(null, /\\.?3avhoz\\.rf$/.test(o))",
+      "cwe": "CWE-16: Configuration"
+    },
+    {
+      "severity": "🟢 LOW",
+      "location": "backend/src/db/index.ts:80-86",
+      "problem": "Логирование 🔶 MOCK MODE выводит в консоль при каждом запуске, но нет логирования из какого источника это пришло (проверка переменной, опечатка, отсутствие).",
+      "fix": "Добавить детализированный лог: console.log(`MOCK MODE. USE_MOCK=${USE_MOCK}, DATABASE_URL=${process.env.DATABASE_URL ? 'set' : 'not set'}`)",
+      "cwe": null
+    },
+    {
+      "severity": "🟢 LOW",
+      "location": "frontend/src/pages/UserDashboardDemo.tsx:18, AdminDashboardDemo.tsx:17",
+      "problem": "Type IconName — объединение строковых литералов (union). Если добавить icon, нужно обновить тип. Хрупко при добавлении новых иконок.",
+      "fix": "Сгенерировать тип автоматически из объекта: type IconName = keyof typeof iconMap",
+      "cwe": null
+    }
+  ],
+  "codeSmells": [
+    {
+      "location": "backend/src/routes/inventory.ts:66-89, reports.ts:10-39",
+      "smell": "Дублирование расчёта процента и обогащения сканов активами",
+      "suggested_extraction": "extractScanStats(scans: Scan[]): ScanStats { ... } и enrichScansWithAssets(scans, assets)"
+    },
+    {
+      "location": "backend/src/routes/auth.ts:8-65, 67-117",
+      "smell": "Дублирование кода в register и login: одинаковая обработка ошибок, одинаковое создание audit-логов, одинаковая генерация JWT",
+      "suggested_extraction": "createAuthToken(userId: string): string и logAuditEvent(userId, action, ...)"
+    },
+    {
+      "location": "backend/src/routes/gdpr.ts:18-69, 72-112",
+      "smell": "Повторяющийся паттерн: достать userId, найти пользователя, создать audit-лог, вернуть результат",
+      "suggested_extraction": "Middleware getUserContext(req, res, next) который устанавливает req.user и проверяет JWT"
+    },
+    {
+      "location": "backend/src/routes/import.ts:80-138, 141-187",
+      "smell": "Обработка ошибок одинакова: для каждой операции try-catch, собирать в arrays imported/errors, возвращать JSON",
+      "suggested_extraction": "Утилита processImport(items, processor) { const results = [], errors = []; for (const item of items) { try ... } return { results, errors } }"
+    },
+    {
+      "location": "frontend/src/pages/Auth.tsx:20-36",
+      "smell": "Валидация ИНН hardcoded в компоненте. При изменении правил нужно менять компонент и API",
+      "suggested_extraction": "Поместить в shared/validators.ts, импортировать на обе стороны"
+    },
+    {
+      "location": "backend/src/routes/*.ts",
+      "smell": "Все error handlers логируют одинаково: { error: 'Failed to ...' }. Нет различия между 400, 404, 500",
+      "suggested_extraction": "Error-handling middleware или ApiError класс с методом toResponse()"
+    },
+    {
+      "location": "frontend/src/pages/UserDashboardDemo.tsx:144-330, AdminDashboardDemo.tsx:147-336",
+      "smell": "Структурные данные (metrics, roomDistribution, auditEvents) hardcoded в компоненте как обычные переменные",
+      "suggested_extraction": "Поместить в отдельный файл constants/dashboardData.ts, импортировать"
+    }
+  ],
+  "securityIssues": [
+    {
+      "severity": "🔴 CRITICAL",
+      "issue": "No JWT verification middleware",
+      "location": "backend/src/routes/gdpr.ts:7-15",
+      "risk": "Любой может выдать себя за кого угодно, используя поддельный Bearer-токен. Возможна кража/удаление данных любого пользователя.",
+      "mitigation": "Реализовать jwt.verify() middleware, проверить подпись, выбросить 401 при ошибке",
+      "cwe": "CWE-287"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "issue": "No authentication on GET /api/assets",
+      "location": "backend/src/routes/assets.ts:6-29",
+      "risk": "Полный реестр имущества всех организаций доступен без логина. Утечка информации о составе ОС.",
+      "mitigation": "Добавить authRequired middleware, фильтровать по текущей организации",
+      "cwe": "CWE-639"
+    },
+    {
+      "severity": "🔴 CRITICAL",
+      "issue": "Password validation too weak for registration",
+      "location": "frontend/src/pages/Auth.tsx:75-78",
+      "risk": "Пароль от 12 символов, но нет проверки на сложность (большие буквы, цифры, спецсимволы). 'aaaaaaaaaaaa' пройдёт валидацию.",
+      "mitigation": "Требовать: ≥1 uppercase, ≥1 lowercase, ≥1 digit, ≥1 special char. Или использовать zxcvbn для проверки entropy.",
+      "cwe": "CWE-521"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "issue": "No CSRF protection",
+      "location": "backend/src/index.ts:24, frontend/src/pages/Auth.tsx:61-106",
+      "risk": "Если пользователь авторизован и откроет поддельный сайт, POST-запросы будут отправлены с cookies текущей сессии.",
+      "mitigation": "Добавить CSRF-токен в форму, проверять на сервере. Или использовать SameSite=Strict для cookies.",
+      "cwe": "CWE-352"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "issue": "Sensitive data in logs",
+      "location": "backend/src/index.ts:30",
+      "risk": "IP-адреса, пути к маршрутам записываются в консоль. Могут попасть в логи на production-сервере и увидены другими.",
+      "mitigation": "Исключить чувствительные маршруты из логирования или хешировать IP",
+      "cwe": "CWE-532"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "issue": "No input validation on import",
+      "location": "backend/src/routes/import.ts:93-109",
+      "risk": "Строки из CSV преобразуются без проверки. Отрицательная стоимость, дата в будущем, инвентарный номер с shell-кодом не будут поймены.",
+      "mitigation": "Добавить validateRow() с проверкой типов, диапазонов, форматов",
+      "cwe": "CWE-20"
+    },
+    {
+      "severity": "🟠 HIGH",
+      "issue": "No tenant isolation (multi-tenant vulnerability)",
+      "location": "backend/src/routes/inventory.ts:1-130",
+      "risk": "Нет проверки, что инвентаризация принадлежит текущей организации. Пользователь может скопировать inventoryId другой организации и изменять её данные.",
+      "mitigation": "Загружать инвентаризацию только если inventory.organizationId === req.user.organizationId",
+      "cwe": "CWE-639"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "issue": "No rate limiting",
+      "location": "backend/src/routes/auth.ts:8, 67",
+      "risk": "Можно перебрать пароли в /login без ограничения. Brute-force атака на аккаунты.",
+      "mitigation": "Использовать express-rate-limit: ограничить 5 попыток за 15 минут на IP",
+      "cwe": "CWE-307"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "issue": "JWT secret exposure risk",
+      "location": "backend/src/routes/auth.ts:52, 104",
+      "risk": "Если .env попадёт в репозиторий или логи, JWT можно подделать",
+      "mitigation": "Использовать KeyVault/Vault вместо .env. Ротировать секреты. Проверить .gitignore.",
+      "cwe": "CWE-798"
+    },
+    {
+      "severity": "🟡 MEDIUM",
+      "issue": "No HTTPS enforcement",
+      "location": "backend/src/index.ts:1-50",
+      "risk": "Токены и пароли передаются по HTTP при разработке. На production нет проверки на HTTPS.",
+      "mitigation": "В production: использовать HTTPS, перенаправлять HTTP на HTTPS, установить Strict-Transport-Security header",
+      "cwe": "CWE-295"
+    }
+  ],
+  "refactorings": [
+    {
+      "name": "Extract JWT Middleware",
+      "priority": "🔴 P0",
+      "effort": "2h",
+      "impact": "security-critical",
+      "before": "// routes/gdpr.ts\nconst requireAuth = async (req: any, res: any, next: any) => {\n  const authHeader = req.headers.authorization;\n  if (!authHeader || !authHeader.startsWith('Bearer ')) {\n    return res.status(401).json({ error: 'Unauthorized' });\n  }\n  next();\n};",
+      "after": "// middleware/auth.ts\nimport jwt from 'jsonwebtoken';\n\nexport const authRequired = (req: any, res: any, next: any) => {\n  const token = req.headers.authorization?.replace('Bearer ', '');\n  if (!token) return res.status(401).json({ error: 'Missing token' });\n  \n  try {\n    const decoded = jwt.verify(token, process.env.JWT_SECRET!);\n    req.userId = decoded.userId;\n    next();\n  } catch (err) {\n    return res.status(401).json({ error: 'Invalid token' });\n  }\n};\n\n// routes/gdpr.ts\nimport { authRequired } from '../middleware/auth';\nrouter.get('/my-data', authRequired, async (req, res) => { ... });",
+      "benefit": "Исправляет критическую уязвимость. JWT проверяется везде, где нужна аутентификация."
+    },
+    {
+      "name": "Fix N+1 in Reports and Inventory",
+      "priority": "🔴 P0",
+      "effort": "3h",
+      "impact": "performance",
+      "before": "// routes/reports.ts:10-39\nconst reports = await Promise.all(\n  inventories.map(async (inv) => {\n    const scans = await db.scan.findMany({ where: { inventoryId: inv.id } });\n    const assets = await db.asset.findMany(); // ← N+1!\n    const scansWithAssets = scans.map(scan => ({\n      ...scan,\n      asset: assets.find(a => a.id === scan.assetId) || null,\n    }));\n    return { ...inv, scans: scansWithAssets };\n  })\n);",
+      "after": "// routes/reports.ts\nconst reports = await Promise.all(\n  inventories.map(async (inv) => {\n    const scans = await db.scan.findMany({ where: { inventoryId: inv.id } });\n    const assetIds = new Set(scans.map(s => s.assetId));\n    const assets = await db.asset.findMany({\n      where: { id: { in: Array.from(assetIds) } }\n    });\n    const assetMap = Object.fromEntries(assets.map(a => [a.id, a]));\n    const scansWithAssets = scans.map(scan => ({\n      ...scan,\n      asset: assetMap[scan.assetId] || null,\n    }));\n    return { ...inv, scans: scansWithAssets };\n  })\n);",
+      "benefit": "Загружаются только нужные активы. O(n) вместо O(n²). Ускорение в 10-100x при большом каталоге."
+    },
+    {
+      "name": "Fix N+1 in Inventory Scan",
+      "priority": "🔴 P0",
+      "effort": "1h",
+      "impact": "performance",
+      "before": "// routes/inventory.ts:35-36\nconst assets = await db.asset.findMany();\nconst asset = assets.find(a => a.inventoryNumber === inventoryNumber);",
+      "after": "// routes/inventory.ts\nconst asset = await db.asset.findUnique({\n  where: { inventoryNumber }\n});",
+      "benefit": "Один query вместо загрузки всех активов. Скорость: O(1) vs O(n)."
+    },
+    {
+      "name": "Extract Input Validators",
+      "priority": "🔴 P1",
+      "effort": "4h",
+      "impact": "security",
+      "before": "// routes/import.ts:91-109\nconst inventoryNumber = String(row['Инвентарный номер'] || row['inventoryNumber'] || row.id || '');\nconst name = String(row['Наименование'] || row.name || '');\nconst mol = String(row['МОЛ'] || row.mol || '');\nconst cost = parseFloat(String(row['Стоимость'] || row.cost || '0'));\nconst accountingDateRaw = row['Дата постановки'] || row['accountingDate'] || null;\nlet accountingDate: Date | null = null;\nif (accountingDateRaw) {\n  const parsed = new Date(String(accountingDateRaw));\n  accountingDate = isNaN(parsed.getTime()) ? null : parsed;\n}\nif (!inventoryNumber || !name) {\n  errors.push(`Пропущена строка: отсутствуют обязательные поля`);\n  continue;\n}",
+      "after": "// validators/asset.ts\ninterface AssetRow {\n  inventoryNumber: string;\n  name: string;\n  mol: string;\n  cost: number;\n  accountingDate: Date | null;\n}\n\nexport function validateAssetRow(row: Record<string, any>): { valid: true; data: AssetRow } | { valid: false; error: string } {\n  const inventoryNumber = String(row['Инвентарный номер'] || '').trim();\n  const name = String(row['Наименование'] || '').trim();\n  const mol = String(row['МОЛ'] || '').trim();\n  const costStr = String(row['Стоимость'] || '0');\n  \n  if (!inventoryNumber || inventoryNumber.length > 50) return { valid: false, error: 'Invalid inventoryNumber' };\n  if (!name || name.length > 200) return { valid: false, error: 'Invalid name' };\n  \n  const cost = parseFloat(costStr);\n  if (isNaN(cost) || cost < 0) return { valid: false, error: 'Invalid cost' };\n  \n  let accountingDate: Date | null = null;\n  if (row['Дата постановки']) {\n    const parsed = new Date(row['Дата постановки']);\n    if (isNaN(parsed.getTime()) || parsed > new Date()) {\n      return { valid: false, error: 'Invalid accountingDate' };\n    }\n    accountingDate = parsed;\n  }\n  \n  return { valid: true, data: { inventoryNumber, name, mol, cost, accountingDate } };\n}\n\n// routes/import.ts\nfor (const row of data) {\n  const validation = validateAssetRow(row);\n  if (!validation.valid) {\n    errors.push(validation.error);\n    continue;\n  }\n  const asset = await db.asset.create({ data: validation.data });\n  imported.push(asset);\n}",
+      "benefit": "Входные данные проверяются перед обработкой. Предотвращает injection, SQL-ошибки, логические ошибки."
+    },
+    {
+      "name": "Extract Auth Helper Functions",
+      "priority": "🟠 P1",
+      "effort": "2h",
+      "impact": "maintainability",
+      "before": "// routes/auth.ts:52-60, 104-113 (повторяющийся код)\nconst token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });\nres.json({\n  token,\n  user: {\n    id: user.id,\n    email: user.email,\n    name: user.name,\n  },\n});",
+      "after": "// helpers/auth.ts\nexport async function createAuthResponse(user: any) {\n  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });\n  return {\n    token,\n    user: {\n      id: user.id,\n      email: user.email,\n      name: user.name,\n    },\n  };\n}\n\nexport async function logAuthEvent(userId: string, action: 'register' | 'login', req: any, db: any) {\n  const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';\n  await db.auditLog.create({\n    data: {\n      userId,\n      action,\n      entity: 'user',\n      entityId: userId,\n      ipAddress,\n      userAgent: req.headers['user-agent'] || 'unknown',\n      details: action === 'register' ? JSON.stringify({ email: req.body.email }) : null,\n    },\n  });\n}\n\n// routes/auth.ts\nimport { createAuthResponse, logAuthEvent } from '../helpers/auth';\n\nrouter.post('/register', async (req, res) => {\n  const authResponse = await createAuthResponse(user);\n  await logAuthEvent(user.id, 'register', req, db);\n  res.json(authResponse);\n});",
+      "benefit": "DRY: код не дублируется. Легче обновлять логику в одном месте."
+    },
+    {
+      "name": "Extract Icon Component to Object",
+      "priority": "🟠 P1",
+      "effort": "2h",
+      "impact": "maintainability",
+      "before": "// pages/UserDashboardDemo.tsx:29-79\nconst Icon = ({ name, size = 20 }: IconProps) => {\n  const commonProps = { ... };\n  switch (name) {\n    case 'archive':\n      return <svg {...commonProps}><rect ... /><path ... /></svg>;\n    case 'bell':\n      return <svg {...commonProps}><path ... /></svg>;\n    // ... 20+ cases\n  }\n};",
+      "after": "// components/Icon.tsx\nconst iconMap: Record<IconName, JSX.Element> = {\n  archive: <svg ...><rect ... /><path ... /></svg>,\n  bell: <svg ...><path ... /></svg>,\n  // ...\n};\n\nconst Icon = ({ name, size = 20 }: IconProps) => {\n  const commonProps = {\n    width: size,\n    height: size,\n    viewBox: '0 0 24 24',\n    fill: 'none',\n    stroke: 'currentColor',\n    strokeWidth: 1.8,\n    strokeLinecap: 'round' as const,\n    strokeLinejoin: 'round' as const,\n    'aria-hidden': true,\n  };\n  const icon = iconMap[name];\n  return icon ? React.cloneElement(icon, commonProps) : null;\n};",
+      "benefit": "Код компонента становится понятнее. Типы проверяются автоматически. Добавить новую иконку легче."
+    },
+    {
+      "name": "Add Error Handling Middleware",
+      "priority": "🟠 P1",
+      "effort": "2h",
+      "impact": "observability",
+      "before": "// Every route: catch (error) { res.status(500).json({ error: 'Failed to ...' }) }",
+      "after": "// middleware/errorHandler.ts\nexport class ApiError extends Error {\n  constructor(public statusCode: number, message: string, public details?: any) {\n    super(message);\n  }\n}\n\nexport const errorHandler = (err: any, _req: any, res: any, _next: any) => {\n  console.error('Error:', err);\n  \n  if (err instanceof ApiError) {\n    return res.status(err.statusCode).json({\n      error: err.message,\n      ...(process.env.NODE_ENV === 'development' && { details: err.details }),\n    });\n  }\n  \n  res.status(500).json({ error: 'Internal server error' });\n};\n\n// index.ts\nimport { errorHandler } from './middleware/errorHandler';\napp.use(errorHandler);\n\n// routes/auth.ts\ntry {\n  if (existingUser) throw new ApiError(409, 'User already exists');\n} catch (error) {\n  if (error instanceof ApiError) throw error;\n  throw new ApiError(500, 'Registration failed', { cause: error });\n}",
+      "benefit": "Единообразная обработка ошибок. Логирование с контекстом. Разные коды для разных ошибок."
+    },
+    {
+      "name": "Add Input Validation Middleware",
+      "priority": "🟠 P1",
+      "effort": "3h",
+      "impact": "security",
+      "before": "// routes/auth.ts:8-22\nrouter.post('/register', async (req, res) => {\n  try {\n    const { email, password, name, consent } = req.body;\n    if (!consent) { ... }\n    const existingUser = await db.user.findUnique({ where: { email } });\n    // Нет проверки email формата, пароля, name длины\n  }",
+      "after": "// middleware/validators.ts\nimport { body, validationResult } from 'express-validator';\n\nexport const validateRegister = [\n  body('email').isEmail().normalizeEmail(),\n  body('password').isLength({ min: 12 }).withMessage('Password must be at least 12 chars'),\n  body('name').isLength({ min: 2, max: 100 }),\n  body('consent').isBoolean().equals('true'),\n];\n\nexport const handleValidationErrors = (req: any, res: any, next: any) => {\n  const errors = validationResult(req);\n  if (!errors.isEmpty()) {\n    return res.status(400).json({ errors: errors.array() });\n  }\n  next();\n};\n\n// routes/auth.ts\nimport { validateRegister, handleValidationErrors } from '../middleware/validators';\nrouter.post('/register', validateRegister, handleValidationErrors, async (req, res) => { ... });",
+      "benefit": "Валидация применяется до обработчика. Невалидные данные отклоняются рано. Меньше ошибок в БД."
+    },
+    {
+      "name": "Implement Soft Delete for Users",
+      "priority": "🟠 P1",
+      "effort": "4h",
+      "impact": "data-integrity",
+      "before": "// routes/gdpr.ts:246\nawait db.user.delete({ where: { id: userId } });",
+      "after": "// Prisma migration\n// ALTER TABLE \"User\" ADD COLUMN \"deletedAt\" TIMESTAMP;\n// CREATE INDEX \"User_deletedAt_idx\" ON \"User\"(\"deletedAt\");\n\n// routes/gdpr.ts\nawait db.user.update({\n  where: { id: userId },\n  data: { deletedAt: new Date() },\n});\n\n// Все queries для достижения пользователей теперь должны включать:\nawait db.user.findUnique({\n  where: { id: userId },\n  // Добавить где в Prisma client или middleware\n});\n// Или использовать soft delete middleware в Prisma",
+      "benefit": "Сохранять ссылки на удалённых пользователей в аудит-логах. GDPR по-прежнему требует очистки, но можно сделать async-job."
+    },
+    {
+      "name": "Add Rate Limiting",
+      "priority": "🟠 P2",
+      "effort": "1h",
+      "impact": "security",
+      "before": "router.post('/login', async (req, res) => { ... });",
+      "after": "import rateLimit from 'express-rate-limit';\n\nconst loginLimiter = rateLimit({\n  windowMs: 15 * 60 * 1000, // 15 minutes\n  max: 5, // 5 requests per windowMs\n  message: 'Too many login attempts, please try again later',\n});\n\nrouter.post('/login', loginLimiter, async (req, res) => { ... });",
+      "benefit": "Защита от brute-force атак. По IP."
+    },
+    {
+      "name": "Add Environment Validation",
+      "priority": "🟠 P1",
+      "effort": "1h",
+      "impact": "reliability",
+      "before": "// index.ts\nconst PORT = process.env.PORT || 3001;\nconst JWT_SECRET = process.env.JWT_SECRET!;",
+      "after": "// config/env.ts\nexport function validateEnvironment() {\n  const required = ['JWT_SECRET'];\n  const missing = required.filter(key => !process.env[key]);\n  if (missing.length > 0) {\n    console.error(`❌ Missing required env vars: ${missing.join(', ')}`);\n    process.exit(1);\n  }\n  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {\n    console.error('❌ DATABASE_URL required in production');\n    process.exit(1);\n  }\n}\n\n// index.ts\nimport { validateEnvironment } from './config/env';\nvalidateEnvironment();\nconst app = express();",
+      "benefit": "Ошибки конфигурации ловятся при старте, а не в runtime."
+    }
+  ],
+  "performanceIssues": [
+    {
+      "location": "backend/src/routes/reports.ts:10-39",
+      "issue": "O(n²) complexity in report generation",
+      "description": "Для каждого отчета загружаются все активы заново. При 1000 инвентаризаций × 5000 активов это 5M запросов в памяти.",
+      "impact": "Очень медленно при масштабе; возможен OOM",
+      "fix": "Загрузить активы один раз, переиспользовать Map"
+    },
+    {
+      "location": "backend/src/routes/inventory.ts:35-36",
+      "issue": "Full table scan instead of indexed lookup",
+      "description": "findMany() загружает все активы для поиска одного по inventoryNumber. Нет индекса на inventoryNumber.",
+      "impact": "Slow lookup; медленнее с каждым активом",
+      "fix": "Использовать findUnique() с where: { inventoryNumber }"
+    },
+    {
+      "location": "backend/src/routes/import.ts:28-52",
+      "issue": "Custom CSV parser without streaming",
+      "description": "Весь файл прочитывается в памяти, парсится построчно. На больших файлах это медленно и может вызвать OOM.",
+      "impact": "Не масштабируется выше 10 МБ",
+      "fix": "Использовать streaming CSV-парсер (csv-parse, papaparse с streaming)"
+    },
+    {
+      "location": "frontend/src/pages/UserDashboardDemo.tsx:29-79",
+      "issue": "Icon component with large switch statement",
+      "description": "Каждый Icon render выполняет switch через 20+ cases. Это O(n) поиск вместо O(1) объекта.",
+      "impact": "Negligible для 50 иконок, но bad pattern",
+      "fix": "Использовать iconMap объект вместо switch"
+    }
+  ],
+  "recommendations": {
+    "immediate": [
+      "🔴 Реализовать JWT verification middleware перед любым использованием в production",
+      "🔴 Добавить аутентификацию на GET /api/assets и другие чувствительные маршруты",
+      "🔴 Исправить N+1 запросы в reports и inventory",
+      "🔴 Добавить input validation на импорт активов"
+    ],
+    "short_term": [
+      "Извлечь валидаторы в shared модуль",
+      "Добавить error handling middleware",
+      "Реализовать soft delete для пользователей",
+      "Добавить rate limiting на auth-маршруты",
+      "Проверить CORS конфигурацию для всех поддоменов"
+    ],
+    "before_production": [
+      "Миграция на Prisma из mock DB",
+      "Полная валидация всех входов (express-validator или zod)",
+      "HTTPS и security headers (HSTS, CSP, X-Frame-Options)",
+      "Тесты для tenant-изоляции",
+      "Настройка логирования без утечки чувствительных данных",
+      "Protect all secrets: .env в .gitignore, использовать KeyVault",
+      "Rate limiting на все auth и resource endpoints",
+      "Аудит-логирование всех критических операций",
+      "Документация API с OpenAPI/Swagger"
+    ]
+  }
+}

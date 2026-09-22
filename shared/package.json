@@ -5,7 +5,14 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run --config ../vitest.unit.config.ts --dir .",
+    "test:integration": "vitest run --config ../vitest.integration.config.ts --dir ."
   },
   "devDependencies": {
     "typescript": "^5.3.3"

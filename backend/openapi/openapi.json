@@ -1,0 +1,1684 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Завхоз.рф API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Создать ожидающую подтверждения регистрацию",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Нейтральный ответ о принятии запроса на регистрацию."
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "summary": "Подтвердить email и создать первую сессию",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email подтверждён, сессия создана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/400"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Начать пользовательскую сессию",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Сессия создана.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Ротировать refresh token и выдать access token",
+        "security": [
+          {
+            "refreshCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Access token обновлён.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "example": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessTokenResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "Отозвать текущую сессию и очистить refresh cookie",
+        "security": [
+          {
+            "refreshCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Сессия отозвана."
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      }
+    },
+    "/organization": {
+      "get": {
+        "summary": "Получить карточку текущей организации",
+        "responses": {
+          "200": {
+            "description": "Карточка организации.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Изменить реквизиты текущей организации",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Карточка организации обновлена.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/organization/suggestions": {
+      "get": {
+        "summary": "Получить несохраняемую подсказку организации по ИНН",
+        "security": [],
+        "parameters": [
+          {
+            "name": "inn",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(?:\\d{10}|\\d{12})$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Подсказка организации без автоматического сохранения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationSuggestion"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/rooms": {
+      "get": {
+        "summary": "Получить список помещений текущей организации",
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница помещений.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать помещение в текущей организации",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Помещение создано.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/rooms/{roomId}": {
+      "parameters": [
+        {
+          "name": "roomId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Получить помещение текущей организации",
+        "responses": {
+          "200": {
+            "description": "Карточка помещения.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Изменить помещение текущей организации",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoomRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Помещение обновлено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/rooms/{roomId}/archive": {
+      "post": {
+        "summary": "Архивировать пустое помещение текущей организации",
+        "parameters": [
+          {
+            "name": "roomId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Помещение архивировано."
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        }
+      }
+    },
+    "/assets": {
+      "get": {
+        "summary": "Получить реестр ОС текущей организации",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roomId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AssetStatus"
+            }
+          },
+          {
+            "name": "importState",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/AssetImportState"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница ОС.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать ОС вручную в текущей организации",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ОС создано.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/assets/{assetId}": {
+      "parameters": [
+        {
+          "name": "assetId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Получить ОС текущей организации",
+        "responses": {
+          "200": {
+            "description": "Карточка ОС.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Изменить разрешённые эксплуатационные поля ОС",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ОС обновлено.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/assets/{assetId}/archive": {
+      "post": {
+        "summary": "Архивировать ОС вне активной инвентаризации",
+        "parameters": [
+          {
+            "name": "assetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "ОС архивировано."
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        }
+      }
+    },
+    "/assets/{assetId}/movements": {
+      "parameters": [
+        {
+          "name": "assetId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Получить историю перемещений ОС",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница перемещений.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovementPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        }
+      },
+      "post": {
+        "summary": "Переместить ОС в помещении текущей организации",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMovementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Перемещение создано.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Movement"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        }
+      }
+    },
+    "/imports": {
+      "post": {
+        "summary": "Загрузить файл staged-импорта",
+        "requestBody": {"required": true, "content": {"multipart/form-data": {"schema": {"$ref": "#/components/schemas/CreateImportRequest"}}}},
+        "responses": {
+          "201": {"description": "Операция импорта создана.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportJob"}}}},
+          "401": {"$ref": "#/components/responses/401"},
+          "413": {"$ref": "#/components/responses/413"},
+          "415": {"$ref": "#/components/responses/415"},
+          "422": {"$ref": "#/components/responses/422"}
+        }
+      }
+    },
+    "/imports/{importId}": {
+      "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "Получить статус staged-импорта", "responses": {"200": {"description": "Операция импорта.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportJob"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}}}
+    },
+    "/imports/{importId}/mapping": {
+      "put": {"summary": "Сохранить сопоставление колонок импорта", "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportMappingRequest"}}}}, "responses": {"200": {"description": "Сопоставление сохранено.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportJob"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}, "422": {"$ref": "#/components/responses/422"}}}
+    },
+    "/imports/{importId}/validate": {
+      "post": {"summary": "Нормализовать и проверить строки импорта", "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Импорт проверен.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportJob"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}, "422": {"$ref": "#/components/responses/422"}}}
+    },
+    "/imports/{importId}/rows": {
+      "get": {"summary": "Получить страницу предпросмотра импорта", "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "action", "in": "query", "schema": {"$ref": "#/components/schemas/ImportRowAction"}}, {"$ref": "#/components/parameters/page"}, {"$ref": "#/components/parameters/pageSize"}], "responses": {"200": {"description": "Страница строк импорта.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportRowPage"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}}}
+    },
+    "/imports/{importId}/confirm": {
+      "post": {"summary": "Применить валидный импорт одной транзакцией", "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Импорт применён.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ImportJob"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}}}
+    },
+    "/imports/{importId}/cancel": {
+      "post": {"summary": "Отменить незавершённый импорт", "parameters": [{"name": "importId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"204": {"description": "Импорт отменён."}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}}}
+    },
+    "/assets/{assetId}/labels": {
+      "post": {"summary": "Создать новую QR-метку ОС", "parameters": [{"name": "assetId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"201": {"description": "Метка создана.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AssetLabel"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}}}
+    },
+    "/labels/print": {
+      "post": {"summary": "Сформировать PDF листа QR-меток", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/PrintLabelsRequest"}}}}, "responses": {"200": {"description": "PDF листа меток.", "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "422": {"$ref": "#/components/responses/422"}}}
+    },
+    "/inventories": {
+      "get": {"summary": "Получить страницу инвентаризаций", "parameters": [{"$ref": "#/components/parameters/page"}, {"$ref": "#/components/parameters/pageSize"}], "responses": {"200": {"description": "Страница инвентаризаций.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InventoryPage"}}}}, "401": {"$ref": "#/components/responses/401"}}},
+      "post": {"summary": "Создать инвентаризацию", "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CreateInventoryRequest"}}}}, "responses": {"201": {"description": "Инвентаризация создана.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Inventory"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "422": {"$ref": "#/components/responses/422"}}}
+    },
+    "/inventories/{inventoryId}": {
+      "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}],
+      "get": {"summary": "Получить инвентаризацию", "responses": {"200": {"description": "Инвентаризация.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Inventory"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}}}
+    },
+    "/inventories/{inventoryId}/start": {
+      "post": {"summary": "Зафиксировать снимок ОС и начать инвентаризацию", "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Инвентаризация начата.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Inventory"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}}}
+    },
+    "/inventories/{inventoryId}/scan": {
+      "post": {"summary": "Зафиксировать скан QR-метки", "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}], "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScanInventoryRequest"}}}}, "responses": {"200": {"description": "Скан зафиксирован.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InventoryItem"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}, "422": {"$ref": "#/components/responses/422"}}}
+    },
+    "/inventories/{inventoryId}/complete": {
+      "post": {"summary": "Завершить инвентаризацию", "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}], "responses": {"200": {"description": "Инвентаризация завершена.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Inventory"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "409": {"$ref": "#/components/responses/409"}}}
+    },
+    "/inventories/{inventoryId}/items": {
+      "get": {"summary": "Получить страницу позиций инвентаризации", "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}, {"$ref": "#/components/parameters/page"}, {"$ref": "#/components/parameters/pageSize"}], "responses": {"200": {"description": "Страница позиций инвентаризации.", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/InventoryItemPage"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}}}
+    },
+    "/inventories/{inventoryId}/report": {
+      "get": {"summary": "Скачать ведомость инвентаризации", "parameters": [{"name": "inventoryId", "in": "path", "required": true, "schema": {"type": "string"}}, {"name": "format", "in": "query", "required": true, "schema": {"type": "string", "enum": ["pdf", "xlsx"]}}], "responses": {"200": {"description": "Ведомость инвентаризации.", "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}}}}, "401": {"$ref": "#/components/responses/401"}, "404": {"$ref": "#/components/responses/404"}, "422": {"$ref": "#/components/responses/422"}}}
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "refreshCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-user_refresh"
+      }
+    },
+    "parameters": {
+      "page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "pageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "responses": {
+      "400": {
+        "description": "Некорректный запрос.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "401": {
+        "description": "Требуется аутентификация.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "403": {
+        "description": "Действие запрещено.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "404": {
+        "description": "Ресурс не найден.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "409": {
+        "description": "Конфликт состояния ресурса.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "413": {
+        "description": "Размер тела запроса превышает лимит.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "415": {
+        "description": "Неподдерживаемый тип содержимого.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "422": {
+        "description": "Ошибка валидации.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "429": {
+        "description": "Превышен лимит запросов.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "500": {
+        "description": "Внутренняя ошибка сервера.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Room": {
+        "type": "object",
+        "required": ["id", "name", "isArchived", "createdAt", "updatedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "floor": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true,
+            "description": "Площадь в м² в десятичной строке."
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateRoomRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "floor": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateRoomRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "floor": {
+            "type": "string",
+            "nullable": true
+          },
+          "area": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "RoomPage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AssetStatus": {
+        "type": "string",
+        "enum": ["IN_USE", "STORED", "REPAIR"]
+      },
+      "AssetImportState": {
+        "type": "string",
+        "enum": ["CURRENT", "MISSING_FROM_LAST_IMPORT"]
+      },
+      "Asset": {
+        "type": "object",
+        "required": [
+          "id",
+          "inventoryNumber",
+          "name",
+          "status",
+          "importState",
+          "isArchived",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "roomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "inventoryNumber": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "cost": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d+(?:\\.\\d{2})?$",
+            "description": "Стоимость в десятичной строке без потери точности."
+          },
+          "accountingDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "usefulLifeMonths": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/AssetStatus"
+          },
+          "importState": {
+            "$ref": "#/components/schemas/AssetImportState"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateAssetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["inventoryNumber", "name"],
+        "properties": {
+          "roomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "cost": {
+            "type": "string",
+            "nullable": true,
+            "pattern": "^\\d+(?:\\.\\d{2})?$"
+          },
+          "accountingDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "usefulLifeMonths": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/AssetStatus"
+          }
+        }
+      },
+      "UpdateAssetRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/AssetStatus"
+          }
+        }
+      },
+      "AssetPage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "Movement": {
+        "type": "object",
+        "required": ["id", "assetId", "movedAt", "createdAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "assetId": {
+            "type": "string"
+          },
+          "sourceRoomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "targetRoomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "movedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateMovementRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["targetRoomId", "movedAt"],
+        "properties": {
+          "targetRoomId": {
+            "type": "string",
+            "nullable": true
+          },
+          "movedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "MovementPage": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Movement"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ImportFormat": {
+        "type": "string",
+        "enum": ["XLS", "XLSX", "CSV"]
+      },
+      "ImportJobStatus": {
+        "type": "string",
+        "enum": ["UPLOADED", "MAPPED", "VALIDATED", "PROCESSING", "COMPLETED", "CANCELLED", "FAILED", "EXPIRED"]
+      },
+      "ImportRowAction": {
+        "type": "string",
+        "enum": ["CREATE", "UPDATE", "CONFLICT", "INVALID", "SKIP"]
+      },
+      "CreateImportRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Файл XLS, XLSX или CSV размером до 10 МБ и не более 50 000 строк."
+          }
+        }
+      },
+      "ImportMappingRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mapping"],
+        "properties": {
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Сопоставление поля ОС с заголовком исходного файла."
+          }
+        }
+      },
+      "ImportJob": {
+        "type": "object",
+        "required": ["id", "sourceFileName", "sourceFormat", "fileHash", "status", "totalRows", "validRows", "invalidRows", "newRows", "updatedRows", "conflictRows", "expiresAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "sourceFileName": { "type": "string" },
+          "sourceFormat": { "$ref": "#/components/schemas/ImportFormat" },
+          "fileHash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "mapping": { "type": "object", "additionalProperties": { "type": "string" }, "nullable": true },
+          "status": { "$ref": "#/components/schemas/ImportJobStatus" },
+          "totalRows": { "type": "integer", "minimum": 0 },
+          "validRows": { "type": "integer", "minimum": 0 },
+          "invalidRows": { "type": "integer", "minimum": 0 },
+          "newRows": { "type": "integer", "minimum": 0 },
+          "updatedRows": { "type": "integer", "minimum": 0 },
+          "conflictRows": { "type": "integer", "minimum": 0 },
+          "startedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "expiresAt": { "type": "string", "format": "date-time" },
+          "errorSummary": { "type": "string", "nullable": true }
+        }
+      },
+      "ImportRow": {
+        "type": "object",
+        "required": ["id", "importJobId", "rowNumber", "rawData", "action", "errors"],
+        "properties": {
+          "id": { "type": "string" },
+          "importJobId": { "type": "string" },
+          "rowNumber": { "type": "integer", "minimum": 1 },
+          "rawData": { "type": "object", "additionalProperties": true },
+          "normalizedData": { "type": "object", "additionalProperties": true, "nullable": true },
+          "action": { "$ref": "#/components/schemas/ImportRowAction" },
+          "errors": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+          "assetId": { "type": "string", "nullable": true }
+        }
+      },
+      "ImportRowPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/ImportRow" } } } }
+        ]
+      },
+      "AssetLabel": {
+        "type": "object",
+        "required": ["id", "assetId", "version", "token", "isActive", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "assetId": { "type": "string" },
+          "version": { "type": "integer", "minimum": 1 },
+          "token": { "type": "string", "description": "Непрозрачный случайный идентификатор QR-метки." },
+          "isActive": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "revokedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "PrintLabelsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["assetIds"],
+        "properties": {
+          "assetIds": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true }
+        }
+      },
+      "InventoryScope": {
+        "type": "string",
+        "enum": ["FULL", "ROOMS"]
+      },
+      "InventoryStatus": {
+        "type": "string",
+        "enum": ["DRAFT", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
+      },
+      "InventoryItemResult": {
+        "type": "string",
+        "enum": ["PENDING", "FOUND", "MISSING", "MISPLACED"]
+      },
+      "CreateInventoryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "scope"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "scope": { "$ref": "#/components/schemas/InventoryScope" },
+          "roomIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" }, "description": "Обязательно для scope ROOMS; не передаётся для FULL." }
+        }
+      },
+      "Inventory": {
+        "type": "object",
+        "required": ["id", "name", "scope", "status", "totalItems", "foundItems", "missingItems", "misplacedItems"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "scope": { "$ref": "#/components/schemas/InventoryScope" },
+          "status": { "$ref": "#/components/schemas/InventoryStatus" },
+          "roomIds": { "type": "array", "items": { "type": "string" } },
+          "startedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "completedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "totalItems": { "type": "integer", "minimum": 0 },
+          "foundItems": { "type": "integer", "minimum": 0 },
+          "missingItems": { "type": "integer", "minimum": 0 },
+          "misplacedItems": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "InventoryPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Inventory" } } } }
+        ]
+      },
+      "ScanInventoryRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["labelToken"],
+        "properties": {
+          "labelToken": { "type": "string", "minLength": 1 },
+          "actualRoomId": { "type": "string", "nullable": true },
+          "note": { "type": "string", "nullable": true }
+        }
+      },
+      "InventoryItem": {
+        "type": "object",
+        "required": ["id", "inventoryId", "assetId", "result"],
+        "properties": {
+          "id": { "type": "string" },
+          "inventoryId": { "type": "string" },
+          "assetId": { "type": "string" },
+          "expectedRoomId": { "type": "string", "nullable": true },
+          "result": { "$ref": "#/components/schemas/InventoryItemResult" },
+          "scannedLabelId": { "type": "string", "nullable": true },
+          "scannedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "actualRoomId": { "type": "string", "nullable": true },
+          "note": { "type": "string", "nullable": true }
+        }
+      },
+      "InventoryItemPage": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PaginatedResponse" },
+          { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/InventoryItem" } } } }
+        ]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "password", "name", "inn", "consent", "consentDocumentVersion"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 128,
+            "format": "password"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inn": {
+            "type": "string",
+            "pattern": "^(?:\\d{10}|\\d{12})$"
+          },
+          "consent": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "consentDocumentVersion": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "VerifyEmailRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          }
+        }
+      },
+      "AccessTokenResponse": {
+        "type": "object",
+        "required": ["accessToken"],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          }
+        }
+      },
+      "AuthSessionResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AccessTokenResponse"
+          },
+          {
+            "type": "object",
+            "required": ["user", "organization"],
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/User"
+              },
+              "organization": {
+                "$ref": "#/components/schemas/Organization"
+              }
+            }
+          }
+        ]
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "Organization": {
+        "type": "object",
+        "required": ["id", "inn", "name", "contactEmail", "createdAt", "updatedAt"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "inn": {
+            "type": "string",
+            "pattern": "^(?:\\d{10}|\\d{12})$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true
+          },
+          "kpp": {
+            "type": "string",
+            "pattern": "^\\d{9}$",
+            "nullable": true
+          },
+          "ogrn": {
+            "type": "string",
+            "nullable": true
+          },
+          "legalAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "contactPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateOrganizationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "inn": {
+            "type": "string",
+            "pattern": "^(?:\\d{10}|\\d{12})$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true
+          },
+          "kpp": {
+            "type": "string",
+            "pattern": "^\\d{9}$",
+            "nullable": true
+          },
+          "ogrn": {
+            "type": "string",
+            "nullable": true
+          },
+          "legalAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "contactEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "contactPhone": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OrganizationSuggestion": {
+        "type": "object",
+        "required": ["inn", "name"],
+        "properties": {
+          "inn": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string",
+            "nullable": true
+          },
+          "kpp": {
+            "type": "string",
+            "nullable": true
+          },
+          "ogrn": {
+            "type": "string",
+            "nullable": true
+          },
+          "legalAddress": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ApiErrorField": {
+        "type": "object",
+        "required": ["path", "message"],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorField"
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "total"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {}
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

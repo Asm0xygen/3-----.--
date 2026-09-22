@@ -18,12 +18,12 @@ export const Header = () => {
           <Link to="/about">О сервисе</Link>
         </div>
 
-        <a
+        <Link
           className="landing-button landing-button-primary landing-header-action"
-          href="mailto:hello@3авхоз.рф?subject=Пилот%20сервиса%20Завхоз.рф"
+          to="/auth"
         >
-          Обсудить пилот
-        </a>
+          Вход | Регистрация
+        </Link>
       </nav>
     </header>
   );

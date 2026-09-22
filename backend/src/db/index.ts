@@ -1,19 +1,13 @@
 import { PrismaClient } from '@prisma/client';
+import { env } from '../config/load-env';
+import { resolveDatabaseMode } from './database-mode';
 import { mockDb } from './mock';
 
-const USE_MOCK = !process.env.DATABASE_URL || process.env.DATABASE_URL.includes('user:password@localhost');
+const databaseMode = resolveDatabaseMode(env);
 
-let prisma: PrismaClient | null = null;
+const prisma = databaseMode === 'postgres' ? new PrismaClient() : null;
 
-if (!USE_MOCK) {
-  try {
-    prisma = new PrismaClient();
-  } catch (error) {
-    console.warn('⚠️  Failed to initialize Prisma, falling back to mock DB');
-  }
-}
-
-export const db = USE_MOCK || !prisma ? {
+export const db = databaseMode === 'mock' ? {
   // Mock DB adapter with Prisma-like API
   user: {
     findUnique: async ({ where }: any) => {
@@ -75,9 +69,16 @@ export const db = USE_MOCK || !prisma ? {
     findMany: async ({ where }: any) => mockDb.findDataRequests(where),
     update: async ({ where, data }: any) => mockDb.updateDataRequest(where.id, data),
   },
-} : prisma;
+} : prisma!;
 
-export const isMockMode = USE_MOCK || !prisma;
+export const isMockMode = databaseMode === 'mock';
+export const connectDatabase = async (): Promise<void> => {
+  if (!prisma) {
+    return;
+  }
+
+  await prisma.$connect();
+};
 
 if (isMockMode) {
   console.log('🔶 Running in MOCK MODE (no database required)');

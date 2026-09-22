@@ -5,7 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "vitest run --config ../vitest.unit.config.ts --dir .",
+    "test:integration": "vitest run --config ../vitest.integration.config.ts --dir ."
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",

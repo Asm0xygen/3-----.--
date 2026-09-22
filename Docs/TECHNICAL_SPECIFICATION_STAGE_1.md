@@ -387,8 +387,8 @@ InventoryItemResult = PENDING | FOUND | MISSING | MISPLACED
 
 - Базовый путь: `/api/v1`.
 - Формат: `application/json`, кроме загрузки файлов и скачивания отчётов.
-- Все маршруты, кроме регистрации, входа, обновления сессии и DaData-подсказки, требуют авторизацию.
-- Регистрация требует `consent: true`; сервер записывает `consentAt`. Иной запрос возвращает `422`.
+- Все маршруты, кроме регистрации, подтверждения email, входа, обновления сессии и DaData-подсказки, требуют авторизацию.
+- Регистрация требует `consent: true` и `consentDocumentVersion`; сервер записывает `consentAt` и версию согласованных документов. Иной запрос возвращает `422`.
 - Ошибки имеют форму:
 
 ```json
@@ -409,7 +409,8 @@ InventoryItemResult = PENDING | FOUND | MISSING | MISPLACED
 
 | Метод и путь | Назначение | Тело/ответ |
 |---|---|---|
-| `POST /auth/register` | Создать пользователя и организацию | `email`, `password`, `name`, `inn`, `consent`; ответ `user`, `organization`. |
+| `POST /auth/register` | Создать ожидающую подтверждения регистрацию | `email`, `password`, `name`, `inn`, `consent`, `consentDocumentVersion`; всегда нейтральный ответ `202`, не раскрывающий существование учётной записи. |
+| `POST /auth/verify-email` | Подтвердить email и начать сессию | `token`; активирует пользователя, устанавливает refresh cookie и возвращает `user`, `organization`, access token. |
 | `POST /auth/login` | Начать сессию | `email`, `password`; ответ `user`, `organization`, access token; refresh token в cookie. |
 | `POST /auth/refresh` | Обновить access token | refresh cookie; ответ access token. |
 | `POST /auth/logout` | Завершить сессию | Отзывает refresh session. |
